@@ -6,6 +6,7 @@ from elasticsearch import Elasticsearch
 from konlpy.tag import Okt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from elasticsearch_dsl7 import Q
 
 # an Engine, which the Session will use for connection
 # resources
@@ -18,10 +19,17 @@ pgsql_session = sessionmaker(pgsql_engine)
 # ES connection
 connections.create_connection(hosts=[ES_URL], timeout=60)
 client = Elasticsearch()
-s = Search().using(client).query("match", title="목도리")
+
+target_dt = os.getenv("TARGET_DT")
+q = Q('match', dt=target_dt)
+s = Search().extra(track_total_hits=True).sort('dt').using(client).query(q)
 response = s.execute()
-for hit in s:
-    print(hit.title, hit.url)
+hit_count = s.count()
+
+for h in s[0:hit_count]:
+    print(h.title, h.dt, h.url)
+
+print(f"num: {s.count()}")
 
 # we can now construct a Session() and include begin()/commit()/rollback()
 # at once
