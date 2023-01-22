@@ -8,17 +8,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from elasticsearch_dsl7 import Q
 
-# an Engine, which the Session will use for connection
-# resources
 PGSQL_URL = os.getenv("PGSQL_URL")
 ES_URL = os.getenv("ES_URL")
-pgsql_engine = create_engine(PGSQL_URL)
-# a sessionmaker(), also in the same scope as the engine
-pgsql_session = sessionmaker(pgsql_engine)
 
 # ES connection
 connections.create_connection(hosts=[ES_URL], timeout=60)
 client = Elasticsearch()
+
+# Postgresql connection
+pgsql_engine = create_engine(PGSQL_URL)
+pgsql_session = sessionmaker(pgsql_engine)
 
 target_dt = os.getenv("TARGET_DT")
 q = Q('match', dt=target_dt)
@@ -27,7 +26,7 @@ response = s.execute()
 hit_count = s.count()
 
 for h in s[0:hit_count]:
-    print(h.title, h.dt, h.url)
+    print(h.title, h.dt, h.url, h.content, h.replyList)
 
 print(f"num: {s.count()}")
 
