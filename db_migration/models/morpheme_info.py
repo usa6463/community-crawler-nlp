@@ -5,7 +5,7 @@ Base = declarative_base()
 class MorphemeInfo(Base):
     __tablename__ = "morpheme_info"
     __table_args__ = {
-        'postgresql_partition_by': 'LIST (log_date)'
+        'postgresql_partition_by': 'RANGE (log_date)'
     }
 
     id = Column(Integer, primary_key=True, autoincrement=True)

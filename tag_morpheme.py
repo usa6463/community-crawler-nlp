@@ -1,12 +1,15 @@
 import os
+from datetime import date, datetime, timedelta
 
-from elasticsearch_dsl7 import connections
-from elasticsearch_dsl7 import Search
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl7 import Q
+from elasticsearch_dsl7 import Search
+from elasticsearch_dsl7 import connections
 from konlpy.tag import Okt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from elasticsearch_dsl7 import Q
+
+from db_migration.models.morpheme_info import MorphemeInfo
 
 PGSQL_URL = os.getenv("PGSQL_URL")
 ES_URL = os.getenv("ES_URL")
@@ -33,6 +36,25 @@ print(f"num: {s.count()}")
 # we can now construct a Session() and include begin()/commit()/rollback()
 # at once
 with pgsql_session.begin() as session:
+    target_dt_obj = datetime.strptime(target_dt, "%Y-%m-%d")
+    target_dt_str = target_dt_obj.strftime("%Y%m%d")
+    target_dt_hyphen = target_dt_obj.strftime("%Y-%m-%d")
+    next_dt_hyphen = (target_dt_obj + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    query = f"CREATE TABLE IF NOT EXISTS morpheme_info_{target_dt_str} PARTITION OF morpheme_info FOR VALUES FROM ('{target_dt_hyphen}') TO ('{next_dt_hyphen}');"
+    print(query)
+
+    session.execute(query)
+    row = MorphemeInfo(
+        log_date=target_dt_obj,
+        word="test",
+        morpheme="Noun",
+        url="localhost",
+        community_type="DC",
+        content_type="Hello"
+    )
+    session.add_all([row])
+    # 어떤 포맷을 write 해야할 것인가
     print("test")
 # commits the transaction, closes the session
 
