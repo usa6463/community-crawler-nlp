@@ -1,5 +1,5 @@
 import os
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl7 import Q
@@ -28,10 +28,8 @@ s = Search().extra(track_total_hits=True).sort('dt').using(client).query(q)
 response = s.execute()
 hit_count = s.count()
 
-for h in s[0:hit_count]:
-    print(h.title, h.dt, h.url, h.content, h.replyList)
-
 print(f"num: {s.count()}")
+okt = Okt()
 
 # we can now construct a Session() and include begin()/commit()/rollback()
 # at once
@@ -43,21 +41,41 @@ with pgsql_session.begin() as session:
 
     query = f"CREATE TABLE IF NOT EXISTS morpheme_info_{target_dt_str} PARTITION OF morpheme_info FOR VALUES FROM ('{target_dt_hyphen}') TO ('{next_dt_hyphen}');"
     print(query)
-
     session.execute(query)
-    row = MorphemeInfo(
-        log_date=target_dt_obj,
-        word="test",
-        morpheme="Noun",
-        url="localhost",
-        community_type="DC",
-        content_type="Hello"
-    )
-    session.add_all([row])
+
+    rows = []
+    for h in s[0:hit_count]:
+        print(h.title, h.dt, h.url, h.content, h.replyList)
+
+        # title 처리
+        for word in okt.pos(h.title, norm=True):
+            row = MorphemeInfo(
+                log_date=target_dt_obj,
+                word=word[0],
+                morpheme=word[1],
+                url=h.url,
+                community_type="DC",
+                content_type="title"
+            )
+            rows.append(row)
+
+        # content 처리
+        for word in okt.pos(h.content, norm=True):
+            row = MorphemeInfo(
+                log_date=target_dt_obj,
+                word=word[0],
+                morpheme=word[1],
+                url=h.url,
+                community_type="DC",
+                content_type="content"
+            )
+            rows.append(row)
+
+    session.add_all(rows)
     # 어떤 포맷을 write 해야할 것인가
     print("test")
 # commits the transaction, closes the session
 
-okt = Okt()
+
 print(okt.morphs('단독입찰보다 복수입찰의 경우'))
 print(okt.pos(u'고맙다 !! 덕분에 안사기로 결정했다 !!', norm=True))
