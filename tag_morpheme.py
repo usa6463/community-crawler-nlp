@@ -71,11 +71,32 @@ with pgsql_session.begin() as session:
             )
             rows.append(row)
 
+        # reply 처리
+        for reply in h.replyList:
+            for word in okt.pos(reply['content'], norm=True):
+                row = MorphemeInfo(
+                    log_date=target_dt_obj,
+                    word=word[0],
+                    morpheme=word[1],
+                    url=h.url,
+                    community_type="DC",
+                    content_type="reply"
+                )
+                rows.append(row)
+
+            # inner reply 처리
+            for inner in reply['innerReplyList']:
+                for word in okt.pos(inner['content'], norm=True):
+                    row = MorphemeInfo(
+                        log_date=target_dt_obj,
+                        word=word[0],
+                        morpheme=word[1],
+                        url=h.url,
+                        community_type="DC",
+                        content_type="inner_reply"
+                    )
+                    rows.append(row)
+
     session.add_all(rows)
     # 어떤 포맷을 write 해야할 것인가
-    print("test")
 # commits the transaction, closes the session
-
-
-print(okt.morphs('단독입찰보다 복수입찰의 경우'))
-print(okt.pos(u'고맙다 !! 덕분에 안사기로 결정했다 !!', norm=True))
