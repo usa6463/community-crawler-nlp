@@ -28,7 +28,17 @@ s = Search().extra(track_total_hits=True).sort('dt').using(client).query(q)
 response = s.execute()
 hit_count = s.count()
 
-logging.warning(f"post count: {s.count()}")
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# log 출력
+formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+logger.info(f"post count: {s.count()}")
+
 okt = Okt()
 
 with pgsql_session.begin() as session:
