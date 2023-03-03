@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 
@@ -8,7 +9,7 @@ from elasticsearch_dsl7 import connections
 from konlpy.tag import Okt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import logging
+
 from db_migration.models.morpheme_info import MorphemeInfo
 
 PGSQL_URL = os.getenv("PGSQL_URL")
@@ -41,6 +42,22 @@ logger.info(f"post count: {s.count()}")
 
 okt = Okt()
 
+
+def _extract_morpheme(content: str, community_type: str, content_type: str, target_dt: datetime, url: str) -> list:
+    result = []
+    for word in okt.pos(content, norm=True):
+        row = MorphemeInfo(
+            log_date=target_dt,
+            word=word[0],
+            morpheme=word[1],
+            url=url,
+            community_type=community_type,
+            content_type=content_type
+        )
+        result.append(row)
+    return result
+
+
 with pgsql_session.begin() as session:
     target_dt_obj = datetime.strptime(target_dt, "%Y-%m-%d")
     target_dt_str = target_dt_obj.strftime("%Y%m%d")
@@ -55,54 +72,20 @@ with pgsql_session.begin() as session:
     rows = []
     for h in s[0:hit_count]:
 
-        # title 처리
-        for word in okt.pos(h.title, norm=True):
-            row = MorphemeInfo(
-                log_date=target_dt_obj,
-                word=word[0],
-                morpheme=word[1],
-                url=h.url,
-                community_type="DC",
-                content_type="title"
-            )
-            rows.append(row)
-
-        # content 처리
-        for word in okt.pos(h.content, norm=True):
-            row = MorphemeInfo(
-                log_date=target_dt_obj,
-                word=word[0],
-                morpheme=word[1],
-                url=h.url,
-                community_type="DC",
-                content_type="content"
-            )
-            rows.append(row)
+        rows.extend(
+            _extract_morpheme(content=h.title, community_type='DC', content_type='title', target_dt=target_dt_obj,
+                              url=h.url))
+        rows.extend(_extract_morpheme(content=h.content, community_type='DC', content_type='content',
+                                      target_dt=target_dt_obj, url=h.url))
 
         # reply 처리
         for reply in h.replyList:
-            for word in okt.pos(reply['content'], norm=True):
-                row = MorphemeInfo(
-                    log_date=target_dt_obj,
-                    word=word[0],
-                    morpheme=word[1],
-                    url=h.url,
-                    community_type="DC",
-                    content_type="reply"
-                )
-                rows.append(row)
+            rows.extend(_extract_morpheme(content=reply['content'], community_type='DC', content_type='reply',
+                                          target_dt=target_dt_obj, url=h.url))
 
             # inner reply 처리
             for inner in reply['innerReplyList']:
-                for word in okt.pos(inner['content'], norm=True):
-                    row = MorphemeInfo(
-                        log_date=target_dt_obj,
-                        word=word[0],
-                        morpheme=word[1],
-                        url=h.url,
-                        community_type="DC",
-                        content_type="inner_reply"
-                    )
-                    rows.append(row)
+                rows.extend(_extract_morpheme(content=inner['content'], community_type='DC', content_type='inner_reply',
+                                              target_dt=target_dt_obj, url=h.url))
 
     session.add_all(rows)
