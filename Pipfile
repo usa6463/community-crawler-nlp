@@ -3,6 +3,9 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[scripts]
+run_tag_morpheme = "python tag_morpheme.py"
+
 [packages]
 sqlalchemy = "==1.4.46"
 alembic = "==1.9.2"
